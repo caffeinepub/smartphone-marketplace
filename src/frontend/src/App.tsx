@@ -1,0 +1,298 @@
+import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner";
+import {
+  LogIn,
+  LogOut,
+  Menu,
+  ShoppingBag,
+  Smartphone,
+  Tag,
+  User,
+  X,
+} from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { useState } from "react";
+import { useInternetIdentity } from "./hooks/useInternetIdentity";
+import { BrowsePage } from "./pages/BrowsePage";
+import { LandingPage } from "./pages/LandingPage";
+import { ListingDetailPage } from "./pages/ListingDetailPage";
+import { MyListingsPage } from "./pages/MyListingsPage";
+import { SellPage } from "./pages/SellPage";
+
+type Page =
+  | { name: "landing" }
+  | { name: "browse" }
+  | { name: "detail"; id: string }
+  | { name: "sell" }
+  | { name: "edit"; id: string }
+  | { name: "my-listings" };
+
+export default function App() {
+  const { identity, login, clear, isLoggingIn } = useInternetIdentity();
+  const isAuthenticated = !!identity;
+  const [page, setPage] = useState<Page>({ name: "landing" });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navigate = (p: Page) => {
+    setPage(p);
+    setMobileMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const renderPage = () => {
+    switch (page.name) {
+      case "landing":
+        return (
+          <LandingPage
+            onBrowse={() => navigate({ name: "browse" })}
+            onSell={() => navigate({ name: "sell" })}
+          />
+        );
+      case "browse":
+        return (
+          <BrowsePage
+            onViewListing={(id) => navigate({ name: "detail", id })}
+          />
+        );
+      case "detail":
+        return (
+          <ListingDetailPage
+            listingId={page.id}
+            onBack={() => navigate({ name: "browse" })}
+            onEdit={(id) => navigate({ name: "edit", id })}
+          />
+        );
+      case "sell":
+        return (
+          <SellPage
+            onSuccess={() => navigate({ name: "browse" })}
+            onBack={() => navigate({ name: "browse" })}
+          />
+        );
+      case "edit":
+        return (
+          <SellPage
+            editId={page.id}
+            onSuccess={() => navigate({ name: "my-listings" })}
+            onBack={() => navigate({ name: "my-listings" })}
+          />
+        );
+      case "my-listings":
+        return (
+          <MyListingsPage
+            onSell={() => navigate({ name: "sell" })}
+            onEdit={(id) => navigate({ name: "edit", id })}
+            onView={(id) => navigate({ name: "detail", id })}
+            onLogin={login}
+          />
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Navigation */}
+      <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-sm">
+        <nav className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          {/* Logo */}
+          <button
+            type="button"
+            data-ocid="nav.logo.button"
+            className="flex items-center gap-2 font-display font-bold text-lg text-foreground hover:text-primary transition-colors"
+            onClick={() => navigate({ name: "landing" })}
+          >
+            <Smartphone className="h-5 w-5 text-primary" />
+            <span>PhoneMarket</span>
+          </button>
+
+          {/* Desktop nav */}
+          <div className="hidden sm:flex items-center gap-1">
+            <Button
+              variant={page.name === "browse" ? "secondary" : "ghost"}
+              size="sm"
+              data-ocid="nav.browse.link"
+              onClick={() => navigate({ name: "browse" })}
+            >
+              <ShoppingBag className="h-4 w-4 mr-1.5" />
+              Browse
+            </Button>
+            <Button
+              variant={page.name === "sell" ? "secondary" : "ghost"}
+              size="sm"
+              data-ocid="nav.sell.link"
+              onClick={() => navigate({ name: "sell" })}
+            >
+              <Tag className="h-4 w-4 mr-1.5" />
+              Sell
+            </Button>
+            {isAuthenticated && (
+              <Button
+                variant={page.name === "my-listings" ? "secondary" : "ghost"}
+                size="sm"
+                data-ocid="nav.my_listings.link"
+                onClick={() => navigate({ name: "my-listings" })}
+              >
+                <User className="h-4 w-4 mr-1.5" />
+                My Listings
+              </Button>
+            )}
+
+            {isAuthenticated ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                data-ocid="nav.logout.button"
+                onClick={clear}
+                className="ml-2"
+              >
+                <LogOut className="h-4 w-4 mr-1.5" />
+                Sign Out
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                data-ocid="nav.login.button"
+                onClick={login}
+                disabled={isLoggingIn}
+                className="ml-2"
+              >
+                <LogIn className="h-4 w-4 mr-1.5" />
+                {isLoggingIn ? "Signing in…" : "Sign In"}
+              </Button>
+            )}
+          </div>
+
+          {/* Mobile menu button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="sm:hidden"
+            data-ocid="nav.mobile_menu.button"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
+          </Button>
+        </nav>
+
+        {/* Mobile nav drawer */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="sm:hidden border-t border-border bg-background"
+            >
+              <div className="px-4 py-3 flex flex-col gap-1">
+                <Button
+                  variant={page.name === "browse" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="justify-start"
+                  data-ocid="nav.mobile.browse.link"
+                  onClick={() => navigate({ name: "browse" })}
+                >
+                  <ShoppingBag className="h-4 w-4 mr-2" />
+                  Browse
+                </Button>
+                <Button
+                  variant={page.name === "sell" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="justify-start"
+                  data-ocid="nav.mobile.sell.link"
+                  onClick={() => navigate({ name: "sell" })}
+                >
+                  <Tag className="h-4 w-4 mr-2" />
+                  Sell
+                </Button>
+                {isAuthenticated && (
+                  <Button
+                    variant={
+                      page.name === "my-listings" ? "secondary" : "ghost"
+                    }
+                    size="sm"
+                    className="justify-start"
+                    data-ocid="nav.mobile.my_listings.link"
+                    onClick={() => navigate({ name: "my-listings" })}
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    My Listings
+                  </Button>
+                )}
+                <div className="pt-2 border-t border-border mt-1">
+                  {isAuthenticated ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="justify-start w-full"
+                      data-ocid="nav.mobile.logout.button"
+                      onClick={clear}
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign Out
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      data-ocid="nav.mobile.login.button"
+                      onClick={login}
+                      disabled={isLoggingIn}
+                    >
+                      <LogIn className="h-4 w-4 mr-2" />
+                      {isLoggingIn ? "Signing in…" : "Sign In"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </header>
+
+      {/* Main content */}
+      <main className="flex-1">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={page.name + ("id" in page ? page.id : "")}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2 }}
+          >
+            {renderPage()}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-border mt-auto py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Smartphone className="h-4 w-4 text-primary" />
+            <span className="font-display font-semibold text-foreground">
+              PhoneMarket
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground text-center">
+            © {new Date().getFullYear()}. Built with ♥ using{" "}
+            <a
+              href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2 hover:text-foreground transition-colors"
+            >
+              caffeine.ai
+            </a>
+          </p>
+        </div>
+      </footer>
+
+      <Toaster position="top-right" richColors />
+    </div>
+  );
+}
