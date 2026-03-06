@@ -28,6 +28,14 @@ const BRANDS = [
   "OnePlus",
   "Xiaomi",
   "Sony",
+  "Infinix",
+  "Tecno",
+  "QMobile",
+  "Itel",
+  "Vivo",
+  "Oppo",
+  "Realme",
+  "Nokia",
   "Other",
 ];
 const CONDITIONS = ["New", "Like New", "Good", "Fair", "Poor"];
@@ -45,7 +53,8 @@ interface FormState {
   condition: string;
   price: string;
   description: string;
-  imageUrl: string;
+  frontImageUrl: string;
+  backImageUrl: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -55,7 +64,8 @@ const EMPTY_FORM: FormState = {
   condition: "",
   price: "",
   description: "",
-  imageUrl: "",
+  frontImageUrl: "",
+  backImageUrl: "",
 };
 
 export function SellPage({ onSuccess, onBack, editId }: SellPageProps) {
@@ -64,7 +74,7 @@ export function SellPage({ onSuccess, onBack, editId }: SellPageProps) {
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<
-    Partial<Record<keyof FormState, string>>
+    Partial<Record<keyof FormState, string>> & { frontImageUrl?: string }
   >({});
 
   const createMutation = useCreateListing();
@@ -82,7 +92,8 @@ export function SellPage({ onSuccess, onBack, editId }: SellPageProps) {
         condition: existingListing.condition,
         price: (Number(existingListing.price) / 100).toString(),
         description: existingListing.description,
-        imageUrl: existingListing.imageUrl,
+        frontImageUrl: existingListing.imageUrl,
+        backImageUrl: "",
       });
     }
   }, [editId, existingListing]);
@@ -102,6 +113,8 @@ export function SellPage({ onSuccess, onBack, editId }: SellPageProps) {
     if (!form.condition) newErrors.condition = "Condition is required";
     if (!form.price || Number(form.price) <= 0)
       newErrors.price = "Enter a valid price";
+    if (!form.frontImageUrl)
+      newErrors.frontImageUrl = "Please upload a front photo of your phone";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -122,7 +135,7 @@ export function SellPage({ onSuccess, onBack, editId }: SellPageProps) {
           condition: form.condition,
           price,
           description: form.description,
-          imageUrl: form.imageUrl,
+          imageUrl: form.frontImageUrl,
         });
         toast.success("Listing updated!");
       } else {
@@ -133,7 +146,7 @@ export function SellPage({ onSuccess, onBack, editId }: SellPageProps) {
           condition: form.condition,
           price,
           description: form.description,
-          imageUrl: form.imageUrl,
+          imageUrl: form.frontImageUrl,
         });
         toast.success("Listing posted!");
       }
@@ -202,15 +215,67 @@ export function SellPage({ onSuccess, onBack, editId }: SellPageProps) {
           data-ocid="sell.form"
         >
           {/* Image upload */}
-          <div className="space-y-2">
-            <Label>Photo</Label>
-            <ImageUpload
-              onUploadComplete={(hash) =>
-                setForm((prev) => ({ ...prev, imageUrl: hash }))
-              }
-              currentImageUrl={form.imageUrl}
-              disabled={isPending}
-            />
+          <div className="space-y-3">
+            <div>
+              <Label className="text-base font-semibold">Phone Photos</Label>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Upload 2 photos of your phone &mdash; one front and one back.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Front image */}
+              <div className="space-y-2">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-medium">
+                    Front <span className="text-destructive">*</span>
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Screen side
+                  </span>
+                </div>
+                <div data-ocid="sell.front_image.dropzone" className="contents">
+                  <ImageUpload
+                    onUploadComplete={(hash) => {
+                      setForm((prev) => ({ ...prev, frontImageUrl: hash }));
+                      setErrors((prev) => ({
+                        ...prev,
+                        frontImageUrl: undefined,
+                      }));
+                    }}
+                    currentImageUrl={form.frontImageUrl}
+                    disabled={isPending}
+                  />
+                </div>
+                {errors.frontImageUrl && (
+                  <p
+                    className="text-xs text-destructive"
+                    data-ocid="sell.front_image.error_state"
+                  >
+                    {errors.frontImageUrl}
+                  </p>
+                )}
+              </div>
+
+              {/* Back image */}
+              <div className="space-y-2">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-medium">Back</span>
+                  <span className="text-xs text-muted-foreground">
+                    Camera side
+                  </span>
+                </div>
+                <div data-ocid="sell.back_image.dropzone" className="contents">
+                  <ImageUpload
+                    onUploadComplete={(hash) =>
+                      setForm((prev) => ({ ...prev, backImageUrl: hash }))
+                    }
+                    currentImageUrl={form.backImageUrl}
+                    disabled={isPending}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Title */}

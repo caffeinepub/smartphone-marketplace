@@ -10,6 +10,21 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface AdminStats {
+  'soldListings' : bigint,
+  'uniqueSellers' : bigint,
+  'activeListings' : bigint,
+  'totalListings' : bigint,
+  'brandBreakdown' : Array<[string, bigint]>,
+}
+export interface ConversationSummary {
+  'lastMessageAt' : bigint,
+  'listingId' : string,
+  'lastMessage' : string,
+  'otherParty' : Principal,
+  'unreadCount' : bigint,
+  'listingTitle' : string,
+}
 export interface Listing {
   'id' : string,
   'model' : string,
@@ -22,6 +37,22 @@ export interface Listing {
   'brand' : string,
   'price' : bigint,
   'condition' : string,
+}
+export interface Message {
+  'id' : string,
+  'content' : string,
+  'listingId' : string,
+  'createdAt' : bigint,
+  'recipient' : Principal,
+  'isRead' : boolean,
+  'sender' : Principal,
+  'listingTitle' : string,
+}
+export interface SellerSummary {
+  'soldListings' : bigint,
+  'activeListings' : bigint,
+  'seller' : Principal,
+  'totalListings' : bigint,
 }
 export interface _CaffeineStorageCreateCertificateResult {
   'method' : string,
@@ -50,15 +81,30 @@ export interface _SERVICE {
     _CaffeineStorageRefillResult
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
+  'adminDeleteAllListingsBySeller' : ActorMethod<[Principal], undefined>,
+  'adminDeleteListing' : ActorMethod<[string], undefined>,
   'createListing' : ActorMethod<
     [string, string, string, string, bigint, string, string],
     string
   >,
   'deleteListing' : ActorMethod<[string], undefined>,
+  'getAdminStats' : ActorMethod<[], AdminStats>,
   'getAllListings' : ActorMethod<[], Array<Listing>>,
+  'getAllListingsAdmin' : ActorMethod<[], Array<Listing>>,
+  'getConversation' : ActorMethod<[string, Principal], Array<Message>>,
+  'getConversationSummaries' : ActorMethod<[], Array<ConversationSummary>>,
+  'getInboxMessages' : ActorMethod<[], Array<Message>>,
   'getListing' : ActorMethod<[string], Listing>,
   'getListingsByUser' : ActorMethod<[Principal], Array<Listing>>,
+  'getSellerSummaries' : ActorMethod<[], Array<SellerSummary>>,
+  'getSentMessages' : ActorMethod<[], Array<Message>>,
+  'getUnreadCount' : ActorMethod<[], bigint>,
+  'initAdmin' : ActorMethod<[], undefined>,
+  'isAdmin' : ActorMethod<[], boolean>,
   'markAsSold' : ActorMethod<[string], undefined>,
+  'markConversationRead' : ActorMethod<[string, Principal], undefined>,
+  'replyMessage' : ActorMethod<[string, Principal, string], undefined>,
+  'sendMessage' : ActorMethod<[string, string], undefined>,
   'updateListing' : ActorMethod<
     [string, string, string, string, string, bigint, string, string],
     undefined

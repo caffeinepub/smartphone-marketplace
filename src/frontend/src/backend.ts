@@ -89,9 +89,18 @@ export class ExternalBlob {
         return this;
     }
 }
-export interface _CaffeineStorageCreateCertificateResult {
-    method: string;
-    blob_hash: string;
+export interface SellerSummary {
+    soldListings: bigint;
+    activeListings: bigint;
+    seller: Principal;
+    totalListings: bigint;
+}
+export interface AdminStats {
+    soldListings: bigint;
+    uniqueSellers: bigint;
+    activeListings: bigint;
+    totalListings: bigint;
+    brandBreakdown: Array<[string, bigint]>;
 }
 export interface Listing {
     id: string;
@@ -106,12 +115,34 @@ export interface Listing {
     price: bigint;
     condition: string;
 }
+export interface _CaffeineStorageRefillInformation {
+    proposed_top_up_amount?: bigint;
+}
+export interface Message {
+    id: string;
+    content: string;
+    listingId: string;
+    createdAt: bigint;
+    recipient: Principal;
+    isRead: boolean;
+    sender: Principal;
+    listingTitle: string;
+}
+export interface _CaffeineStorageCreateCertificateResult {
+    method: string;
+    blob_hash: string;
+}
+export interface ConversationSummary {
+    lastMessageAt: bigint;
+    listingId: string;
+    lastMessage: string;
+    otherParty: Principal;
+    unreadCount: bigint;
+    listingTitle: string;
+}
 export interface _CaffeineStorageRefillResult {
     success?: boolean;
     topped_up_amount?: bigint;
-}
-export interface _CaffeineStorageRefillInformation {
-    proposed_top_up_amount?: bigint;
 }
 export interface backendInterface {
     _caffeineStorageBlobIsLive(hash: Uint8Array): Promise<boolean>;
@@ -120,12 +151,27 @@ export interface backendInterface {
     _caffeineStorageCreateCertificate(blobHash: string): Promise<_CaffeineStorageCreateCertificateResult>;
     _caffeineStorageRefillCashier(refillInformation: _CaffeineStorageRefillInformation | null): Promise<_CaffeineStorageRefillResult>;
     _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
+    adminDeleteAllListingsBySeller(seller: Principal): Promise<void>;
+    adminDeleteListing(id: string): Promise<void>;
     createListing(title: string, brand: string, model: string, condition: string, price: bigint, description: string, imageUrl: string): Promise<string>;
     deleteListing(id: string): Promise<void>;
+    getAdminStats(): Promise<AdminStats>;
     getAllListings(): Promise<Array<Listing>>;
+    getAllListingsAdmin(): Promise<Array<Listing>>;
+    getConversation(listingId: string, otherParty: Principal): Promise<Array<Message>>;
+    getConversationSummaries(): Promise<Array<ConversationSummary>>;
+    getInboxMessages(): Promise<Array<Message>>;
     getListing(id: string): Promise<Listing>;
     getListingsByUser(user: Principal): Promise<Array<Listing>>;
+    getSellerSummaries(): Promise<Array<SellerSummary>>;
+    getSentMessages(): Promise<Array<Message>>;
+    getUnreadCount(): Promise<bigint>;
+    initAdmin(): Promise<void>;
+    isAdmin(): Promise<boolean>;
     markAsSold(id: string): Promise<void>;
+    markConversationRead(listingId: string, otherParty: Principal): Promise<void>;
+    replyMessage(listingId: string, buyer: Principal, content: string): Promise<void>;
+    sendMessage(listingId: string, content: string): Promise<void>;
     updateListing(id: string, title: string, brand: string, model: string, condition: string, price: bigint, description: string, imageUrl: string): Promise<void>;
 }
 import type { _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
@@ -215,6 +261,34 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async adminDeleteAllListingsBySeller(arg0: Principal): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.adminDeleteAllListingsBySeller(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.adminDeleteAllListingsBySeller(arg0);
+            return result;
+        }
+    }
+    async adminDeleteListing(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.adminDeleteListing(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.adminDeleteListing(arg0);
+            return result;
+        }
+    }
     async createListing(arg0: string, arg1: string, arg2: string, arg3: string, arg4: bigint, arg5: string, arg6: string): Promise<string> {
         if (this.processError) {
             try {
@@ -243,6 +317,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getAdminStats(): Promise<AdminStats> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAdminStats();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAdminStats();
+            return result;
+        }
+    }
     async getAllListings(): Promise<Array<Listing>> {
         if (this.processError) {
             try {
@@ -254,6 +342,62 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getAllListings();
+            return result;
+        }
+    }
+    async getAllListingsAdmin(): Promise<Array<Listing>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllListingsAdmin();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllListingsAdmin();
+            return result;
+        }
+    }
+    async getConversation(arg0: string, arg1: Principal): Promise<Array<Message>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getConversation(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getConversation(arg0, arg1);
+            return result;
+        }
+    }
+    async getConversationSummaries(): Promise<Array<ConversationSummary>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getConversationSummaries();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getConversationSummaries();
+            return result;
+        }
+    }
+    async getInboxMessages(): Promise<Array<Message>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getInboxMessages();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getInboxMessages();
             return result;
         }
     }
@@ -285,6 +429,76 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getSellerSummaries(): Promise<Array<SellerSummary>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getSellerSummaries();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getSellerSummaries();
+            return result;
+        }
+    }
+    async getSentMessages(): Promise<Array<Message>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getSentMessages();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getSentMessages();
+            return result;
+        }
+    }
+    async getUnreadCount(): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getUnreadCount();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getUnreadCount();
+            return result;
+        }
+    }
+    async initAdmin(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.initAdmin();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.initAdmin();
+            return result;
+        }
+    }
+    async isAdmin(): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.isAdmin();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.isAdmin();
+            return result;
+        }
+    }
     async markAsSold(arg0: string): Promise<void> {
         if (this.processError) {
             try {
@@ -296,6 +510,48 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.markAsSold(arg0);
+            return result;
+        }
+    }
+    async markConversationRead(arg0: string, arg1: Principal): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.markConversationRead(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.markConversationRead(arg0, arg1);
+            return result;
+        }
+    }
+    async replyMessage(arg0: string, arg1: Principal, arg2: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.replyMessage(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.replyMessage(arg0, arg1, arg2);
+            return result;
+        }
+    }
+    async sendMessage(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.sendMessage(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.sendMessage(arg0, arg1);
             return result;
         }
     }

@@ -19,6 +19,13 @@ export const _CaffeineStorageRefillResult = IDL.Record({
   'success' : IDL.Opt(IDL.Bool),
   'topped_up_amount' : IDL.Opt(IDL.Nat),
 });
+export const AdminStats = IDL.Record({
+  'soldListings' : IDL.Nat,
+  'uniqueSellers' : IDL.Nat,
+  'activeListings' : IDL.Nat,
+  'totalListings' : IDL.Nat,
+  'brandBreakdown' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
+});
 export const Listing = IDL.Record({
   'id' : IDL.Text,
   'model' : IDL.Text,
@@ -31,6 +38,30 @@ export const Listing = IDL.Record({
   'brand' : IDL.Text,
   'price' : IDL.Nat,
   'condition' : IDL.Text,
+});
+export const Message = IDL.Record({
+  'id' : IDL.Text,
+  'content' : IDL.Text,
+  'listingId' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'recipient' : IDL.Principal,
+  'isRead' : IDL.Bool,
+  'sender' : IDL.Principal,
+  'listingTitle' : IDL.Text,
+});
+export const ConversationSummary = IDL.Record({
+  'lastMessageAt' : IDL.Int,
+  'listingId' : IDL.Text,
+  'lastMessage' : IDL.Text,
+  'otherParty' : IDL.Principal,
+  'unreadCount' : IDL.Nat,
+  'listingTitle' : IDL.Text,
+});
+export const SellerSummary = IDL.Record({
+  'soldListings' : IDL.Nat,
+  'activeListings' : IDL.Nat,
+  'seller' : IDL.Principal,
+  'totalListings' : IDL.Nat,
 });
 
 export const idlService = IDL.Service({
@@ -60,20 +91,43 @@ export const idlService = IDL.Service({
       [],
     ),
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
+  'adminDeleteAllListingsBySeller' : IDL.Func([IDL.Principal], [], []),
+  'adminDeleteListing' : IDL.Func([IDL.Text], [], []),
   'createListing' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
       [IDL.Text],
       [],
     ),
   'deleteListing' : IDL.Func([IDL.Text], [], []),
+  'getAdminStats' : IDL.Func([], [AdminStats], ['query']),
   'getAllListings' : IDL.Func([], [IDL.Vec(Listing)], ['query']),
+  'getAllListingsAdmin' : IDL.Func([], [IDL.Vec(Listing)], ['query']),
+  'getConversation' : IDL.Func(
+      [IDL.Text, IDL.Principal],
+      [IDL.Vec(Message)],
+      ['query'],
+    ),
+  'getConversationSummaries' : IDL.Func(
+      [],
+      [IDL.Vec(ConversationSummary)],
+      ['query'],
+    ),
+  'getInboxMessages' : IDL.Func([], [IDL.Vec(Message)], ['query']),
   'getListing' : IDL.Func([IDL.Text], [Listing], ['query']),
   'getListingsByUser' : IDL.Func(
       [IDL.Principal],
       [IDL.Vec(Listing)],
       ['query'],
     ),
+  'getSellerSummaries' : IDL.Func([], [IDL.Vec(SellerSummary)], ['query']),
+  'getSentMessages' : IDL.Func([], [IDL.Vec(Message)], ['query']),
+  'getUnreadCount' : IDL.Func([], [IDL.Nat], ['query']),
+  'initAdmin' : IDL.Func([], [], []),
+  'isAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'markAsSold' : IDL.Func([IDL.Text], [], []),
+  'markConversationRead' : IDL.Func([IDL.Text, IDL.Principal], [], []),
+  'replyMessage' : IDL.Func([IDL.Text, IDL.Principal, IDL.Text], [], []),
+  'sendMessage' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'updateListing' : IDL.Func(
       [
         IDL.Text,
@@ -104,6 +158,13 @@ export const idlFactory = ({ IDL }) => {
     'success' : IDL.Opt(IDL.Bool),
     'topped_up_amount' : IDL.Opt(IDL.Nat),
   });
+  const AdminStats = IDL.Record({
+    'soldListings' : IDL.Nat,
+    'uniqueSellers' : IDL.Nat,
+    'activeListings' : IDL.Nat,
+    'totalListings' : IDL.Nat,
+    'brandBreakdown' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
+  });
   const Listing = IDL.Record({
     'id' : IDL.Text,
     'model' : IDL.Text,
@@ -116,6 +177,30 @@ export const idlFactory = ({ IDL }) => {
     'brand' : IDL.Text,
     'price' : IDL.Nat,
     'condition' : IDL.Text,
+  });
+  const Message = IDL.Record({
+    'id' : IDL.Text,
+    'content' : IDL.Text,
+    'listingId' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'recipient' : IDL.Principal,
+    'isRead' : IDL.Bool,
+    'sender' : IDL.Principal,
+    'listingTitle' : IDL.Text,
+  });
+  const ConversationSummary = IDL.Record({
+    'lastMessageAt' : IDL.Int,
+    'listingId' : IDL.Text,
+    'lastMessage' : IDL.Text,
+    'otherParty' : IDL.Principal,
+    'unreadCount' : IDL.Nat,
+    'listingTitle' : IDL.Text,
+  });
+  const SellerSummary = IDL.Record({
+    'soldListings' : IDL.Nat,
+    'activeListings' : IDL.Nat,
+    'seller' : IDL.Principal,
+    'totalListings' : IDL.Nat,
   });
   
   return IDL.Service({
@@ -145,20 +230,43 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
+    'adminDeleteAllListingsBySeller' : IDL.Func([IDL.Principal], [], []),
+    'adminDeleteListing' : IDL.Func([IDL.Text], [], []),
     'createListing' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
         [IDL.Text],
         [],
       ),
     'deleteListing' : IDL.Func([IDL.Text], [], []),
+    'getAdminStats' : IDL.Func([], [AdminStats], ['query']),
     'getAllListings' : IDL.Func([], [IDL.Vec(Listing)], ['query']),
+    'getAllListingsAdmin' : IDL.Func([], [IDL.Vec(Listing)], ['query']),
+    'getConversation' : IDL.Func(
+        [IDL.Text, IDL.Principal],
+        [IDL.Vec(Message)],
+        ['query'],
+      ),
+    'getConversationSummaries' : IDL.Func(
+        [],
+        [IDL.Vec(ConversationSummary)],
+        ['query'],
+      ),
+    'getInboxMessages' : IDL.Func([], [IDL.Vec(Message)], ['query']),
     'getListing' : IDL.Func([IDL.Text], [Listing], ['query']),
     'getListingsByUser' : IDL.Func(
         [IDL.Principal],
         [IDL.Vec(Listing)],
         ['query'],
       ),
+    'getSellerSummaries' : IDL.Func([], [IDL.Vec(SellerSummary)], ['query']),
+    'getSentMessages' : IDL.Func([], [IDL.Vec(Message)], ['query']),
+    'getUnreadCount' : IDL.Func([], [IDL.Nat], ['query']),
+    'initAdmin' : IDL.Func([], [], []),
+    'isAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'markAsSold' : IDL.Func([IDL.Text], [], []),
+    'markConversationRead' : IDL.Func([IDL.Text, IDL.Principal], [], []),
+    'replyMessage' : IDL.Func([IDL.Text, IDL.Principal, IDL.Text], [], []),
+    'sendMessage' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'updateListing' : IDL.Func(
         [
           IDL.Text,

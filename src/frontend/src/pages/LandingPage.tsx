@@ -103,8 +103,8 @@ export function LandingPage({ onBrowse, onSell }: LandingPageProps) {
               }}
             />
             <img
-              src="/assets/generated/app-logo-transparent.dim_320x320.png"
-              alt="SmartPhone Marketplace Logo"
+              src="/assets/generated/phonebazaar-logo-transparent.dim_320x320.png"
+              alt="PhoneBazaar Logo"
               data-ocid="landing.logo"
               className="relative w-44 h-44 md:w-52 md:h-52 object-contain drop-shadow-[0_0_40px_rgba(250,100,10,0.6)]"
             />
@@ -117,7 +117,7 @@ export function LandingPage({ onBrowse, onSell }: LandingPageProps) {
           className="font-display font-black text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-white leading-[1.05] tracking-tight mb-5"
           style={{ textShadow: "0 2px 24px rgba(0,0,0,0.6)" }}
         >
-          SmartPhone{" "}
+          Phone
           <span
             className="inline-block"
             style={{
@@ -125,7 +125,7 @@ export function LandingPage({ onBrowse, onSell }: LandingPageProps) {
               textShadow: "0 0 40px oklch(0.62 0.21 31 / 0.5)",
             }}
           >
-            Marketplace
+            Bazaar
           </span>
         </motion.h1>
 

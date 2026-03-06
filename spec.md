@@ -1,23 +1,24 @@
-# SmartPhone Marketplace
+# PhoneBazaar
 
 ## Current State
-The app has a full browse/sell/detail/my-listings flow with PKR pricing, image upload, and Pakistani phone brands. The app starts directly on the BrowsePage with a sticky nav header. There is no dedicated landing/home page.
+The app has a full messaging system (send/reply, conversation list, thread view). The nav shows a red unread badge that polls every 30 seconds. There are no in-app toast notifications when a new message arrives while the user is browsing.
 
 ## Requested Changes (Diff)
 
 ### Add
-- A new `LandingPage` component as the app's first screen
-- Full-viewport hero section with the generated hero background image
-- Centered app logo (`/assets/generated/app-logo-transparent.dim_320x320.png`) prominently displayed
-- App name "SmartPhone Marketplace" as a large headline
-- Tagline text beneath the headline
-- Two CTA buttons: "Browse Phones" and "Sell Your Phone"
-- Feature highlights row (3 icons + short text) below CTAs
-- Animated entrance effects (fade + slide)
+- In-app toast notification that fires whenever the unread count increases while the user is authenticated and browsing any page.
+- Notification toast should show: "New message on [listing title]" with a button/link to open the Inbox.
+- A `useMessageNotifications` hook in `useQueries.ts` (or a new file) that tracks the previous unread count and triggers a toast when it goes up.
 
 ### Modify
-- `App.tsx`: add `landing` to the Page type and set it as the initial page; navigate away from landing when user clicks Browse or Sell CTAs
-- Nav logo click goes to `landing` page (not `browse`)
+- `App.tsx`: wire up the new notification hook so it runs globally while the user is signed in.
+- Poll interval for unread count: reduce from 30s to 15s so notifications feel more responsive.
 
 ### Remove
-- Nothing removed from existing pages
+- Nothing removed.
+
+## Implementation Plan
+1. Add `useMessageNotifications` hook that polls `getUnreadCount`, compares to previous value, and fires a `toast` (sonner) when it increases.
+2. The hook also calls `getConversationSummaries` on change to find the listing title of the newest unread conversation for the toast message.
+3. Wire the hook into `App.tsx` so it runs whenever the user is authenticated.
+4. Reduce the unread count refetch interval from 30s to 15s in `useUnreadCount`.

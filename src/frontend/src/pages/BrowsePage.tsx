@@ -24,6 +24,14 @@ const BRANDS = [
   "OnePlus",
   "Xiaomi",
   "Sony",
+  "Infinix",
+  "Tecno",
+  "QMobile",
+  "Itel",
+  "Vivo",
+  "Oppo",
+  "Realme",
+  "Nokia",
   "Other",
 ];
 const CONDITIONS = ["All", "New", "Like New", "Good", "Fair", "Poor"];

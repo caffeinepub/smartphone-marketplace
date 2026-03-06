@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import {
+  Inbox,
   LogIn,
   LogOut,
   Menu,
+  ShieldCheck,
   ShoppingBag,
   Smartphone,
   Tag,
@@ -11,11 +13,15 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
+import { useMessageNotifications, useUnreadCount } from "./hooks/useQueries";
+import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { BrowsePage } from "./pages/BrowsePage";
 import { LandingPage } from "./pages/LandingPage";
 import { ListingDetailPage } from "./pages/ListingDetailPage";
+import { MessagesPage } from "./pages/MessagesPage";
 import { MyListingsPage } from "./pages/MyListingsPage";
 import { SellPage } from "./pages/SellPage";
 
@@ -25,13 +31,43 @@ type Page =
   | { name: "detail"; id: string }
   | { name: "sell" }
   | { name: "edit"; id: string }
-  | { name: "my-listings" };
+  | { name: "my-listings" }
+  | { name: "admin" }
+  | { name: "messages" };
+
+function UnreadBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1 leading-none">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
 
 export default function App() {
   const { identity, login, clear, isLoggingIn } = useInternetIdentity();
+  const { actor, isFetching: actorFetching } = useActor();
   const isAuthenticated = !!identity;
   const [page, setPage] = useState<Page>({ name: "landing" });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(false);
+
+  const { data: unreadCountBigInt } = useUnreadCount();
+  const unreadCount = unreadCountBigInt ? Number(unreadCountBigInt) : 0;
+
+  useMessageNotifications(() => navigate({ name: "messages" }));
+
+  // Check admin status whenever identity or actor changes
+  useEffect(() => {
+    if (!actor || actorFetching || !identity) {
+      setIsAdminUser(false);
+      return;
+    }
+    actor
+      .isAdmin()
+      .then(setIsAdminUser)
+      .catch(() => setIsAdminUser(false));
+  }, [actor, actorFetching, identity]);
 
   const navigate = (p: Page) => {
     setPage(p);
@@ -60,6 +96,7 @@ export default function App() {
             listingId={page.id}
             onBack={() => navigate({ name: "browse" })}
             onEdit={(id) => navigate({ name: "edit", id })}
+            onNavigateToMessages={() => navigate({ name: "messages" })}
           />
         );
       case "sell":
@@ -86,6 +123,15 @@ export default function App() {
             onLogin={login}
           />
         );
+      case "admin":
+        return <AdminDashboardPage />;
+      case "messages":
+        return (
+          <MessagesPage
+            onViewListing={(id) => navigate({ name: "detail", id })}
+            onLogin={login}
+          />
+        );
     }
   };
 
@@ -101,8 +147,11 @@ export default function App() {
             className="flex items-center gap-2 font-display font-bold text-lg text-foreground hover:text-primary transition-colors"
             onClick={() => navigate({ name: "landing" })}
           >
-            <Smartphone className="h-5 w-5 text-primary" />
-            <span>PhoneMarket</span>
+            <img
+              src="/assets/generated/phonebazaar-logo-nav-transparent.dim_200x60.png"
+              alt="PhoneBazaar"
+              className="h-8 w-auto object-contain"
+            />
           </button>
 
           {/* Desktop nav */}
@@ -134,6 +183,31 @@ export default function App() {
               >
                 <User className="h-4 w-4 mr-1.5" />
                 My Listings
+              </Button>
+            )}
+            {isAuthenticated && (
+              <div className="relative">
+                <Button
+                  variant={page.name === "messages" ? "secondary" : "ghost"}
+                  size="sm"
+                  data-ocid="nav.inbox.link"
+                  onClick={() => navigate({ name: "messages" })}
+                >
+                  <Inbox className="h-4 w-4 mr-1.5" />
+                  Inbox
+                </Button>
+                <UnreadBadge count={unreadCount} />
+              </div>
+            )}
+            {isAuthenticated && isAdminUser && (
+              <Button
+                variant={page.name === "admin" ? "secondary" : "ghost"}
+                size="sm"
+                data-ocid="nav.admin.link"
+                onClick={() => navigate({ name: "admin" })}
+              >
+                <ShieldCheck className="h-4 w-4 mr-1.5" />
+                Admin
               </Button>
             )}
 
@@ -223,6 +297,37 @@ export default function App() {
                     My Listings
                   </Button>
                 )}
+                {isAuthenticated && (
+                  <div className="relative w-full">
+                    <Button
+                      variant={page.name === "messages" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="justify-start w-full"
+                      data-ocid="nav.mobile.inbox.link"
+                      onClick={() => navigate({ name: "messages" })}
+                    >
+                      <Inbox className="h-4 w-4 mr-2" />
+                      Inbox
+                      {unreadCount > 0 && (
+                        <span className="ml-auto h-5 min-w-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1.5 leading-none">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
+                    </Button>
+                  </div>
+                )}
+                {isAuthenticated && isAdminUser && (
+                  <Button
+                    variant={page.name === "admin" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="justify-start"
+                    data-ocid="nav.mobile.admin.link"
+                    onClick={() => navigate({ name: "admin" })}
+                  >
+                    <ShieldCheck className="h-4 w-4 mr-2" />
+                    Admin
+                  </Button>
+                )}
                 <div className="pt-2 border-t border-border mt-1">
                   {isAuthenticated ? (
                     <Button
@@ -275,7 +380,7 @@ export default function App() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Smartphone className="h-4 w-4 text-primary" />
             <span className="font-display font-semibold text-foreground">
-              PhoneMarket
+              PhoneBazaar
             </span>
           </div>
           <p className="text-xs text-muted-foreground text-center">

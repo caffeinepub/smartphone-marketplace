@@ -11,44 +11,62 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertCircle,
   ArrowLeft,
   CheckCircle,
   Edit2,
+  Loader2,
   MessageCircle,
   Trash2,
 } from "lucide-react";
-import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { ListingImage } from "../components/ListingImage";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useDeleteListing,
   useListing,
   useMarkAsSold,
+  useSendMessage,
 } from "../hooks/useQueries";
 
 interface ListingDetailPageProps {
   listingId: string;
   onBack: () => void;
   onEdit: (id: string) => void;
+  onNavigateToMessages?: () => void;
 }
 
 export function ListingDetailPage({
   listingId,
   onBack,
   onEdit,
+  onNavigateToMessages,
 }: ListingDetailPageProps) {
   const { data: listing, isLoading, isError } = useListing(listingId);
-  const { identity } = useInternetIdentity();
+  const { identity, login } = useInternetIdentity();
   const deleteMutation = useDeleteListing();
   const markSoldMutation = useMarkAsSold();
+  const sendMessageMutation = useSendMessage();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [messageContent, setMessageContent] = useState("");
 
   const myPrincipal = identity?.getPrincipal().toString();
+  const isAuthenticated = !!identity;
   const isOwner = myPrincipal && listing?.seller?.toString() === myPrincipal;
   const price = listing ? Number(listing.price) / 100 : 0;
 
@@ -61,6 +79,31 @@ export function ListingDetailPage({
   const handleMarkSold = async () => {
     if (!listing) return;
     await markSoldMutation.mutateAsync(listing.id);
+  };
+
+  const handleOpenMessageDialog = () => {
+    if (!isAuthenticated) {
+      toast.info("Please sign in to contact the seller.");
+      login();
+      return;
+    }
+    setMessageDialogOpen(true);
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageContent.trim() || !listing) return;
+    try {
+      await sendMessageMutation.mutateAsync({
+        listingId: listing.id,
+        content: messageContent.trim(),
+      });
+      toast.success("Message sent to seller!");
+      setMessageContent("");
+      setMessageDialogOpen(false);
+      onNavigateToMessages?.();
+    } catch {
+      toast.error("Failed to send message. Please try again.");
+    }
   };
 
   if (isLoading) {
@@ -146,9 +189,14 @@ export function ListingDetailPage({
             </p>
           </div>
 
-          <p className="text-3xl font-bold text-primary">
-            ₨{Math.round(price).toLocaleString()}
-          </p>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+              Asking Price
+            </p>
+            <p className="text-3xl font-bold text-primary">
+              ₨{Math.round(price).toLocaleString()}
+            </p>
+          </div>
 
           {listing.description && (
             <div>
@@ -236,23 +284,87 @@ export function ListingDetailPage({
               </>
             ) : (
               !listing.sold && (
-                <Button
-                  data-ocid="detail.contact.button"
-                  onClick={() => {
-                    const subject = encodeURIComponent(
-                      `Interested in: ${listing.title}`,
-                    );
-                    window.open(`mailto:?subject=${subject}`);
-                  }}
-                >
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Contact Seller
-                </Button>
+                <>
+                  <Button
+                    data-ocid="detail.message_seller.button"
+                    onClick={handleOpenMessageDialog}
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Message Seller
+                  </Button>
+                  {!isAuthenticated && (
+                    <p className="w-full text-xs text-muted-foreground">
+                      You need to sign in to contact the seller.
+                    </p>
+                  )}
+                </>
               )
             )}
           </div>
         </div>
       </motion.div>
+
+      {/* Message Seller Dialog */}
+      <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
+        <DialogContent
+          data-ocid="detail.message.dialog"
+          className="sm:max-w-md"
+        >
+          <DialogHeader>
+            <DialogTitle className="font-display">Message Seller</DialogTitle>
+            <DialogDescription>
+              Send a message about &ldquo;{listing.title}&rdquo;. The seller
+              will reply in your Inbox.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="message-content" className="sr-only">
+              Your message
+            </Label>
+            <Textarea
+              id="message-content"
+              data-ocid="detail.message.textarea"
+              placeholder={`Hi, I'm interested in your ${listing.title}. Is it still available?`}
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
+              rows={4}
+              className="resize-none"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && e.ctrlKey) {
+                  void handleSendMessage();
+                }
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Ctrl + Enter to send
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              data-ocid="detail.message.cancel_button"
+              onClick={() => {
+                setMessageDialogOpen(false);
+                setMessageContent("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              data-ocid="detail.message.submit_button"
+              onClick={handleSendMessage}
+              disabled={!messageContent.trim() || sendMessageMutation.isPending}
+            >
+              {sendMessageMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <MessageCircle className="h-4 w-4 mr-2" />
+              )}
+              Send Message
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
