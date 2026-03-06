@@ -103,7 +103,7 @@ export function LandingPage({ onBrowse, onSell }: LandingPageProps) {
               }}
             />
             <img
-              src="/assets/generated/phonebazaar-logo-transparent.dim_320x320.png"
+              src="/assets/uploads/logo-transparent-1.png"
               alt="PhoneBazaar Logo"
               data-ocid="landing.logo"
               className="relative w-44 h-44 md:w-52 md:h-52 object-contain drop-shadow-[0_0_40px_rgba(250,100,10,0.6)]"

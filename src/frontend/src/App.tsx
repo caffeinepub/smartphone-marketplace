@@ -148,7 +148,7 @@ export default function App() {
             onClick={() => navigate({ name: "landing" })}
           >
             <img
-              src="/assets/generated/phonebazaar-logo-nav-transparent.dim_200x60.png"
+              src="/assets/uploads/logo-transparent-1.png"
               alt="PhoneBazaar"
               className="h-8 w-auto object-contain"
             />
