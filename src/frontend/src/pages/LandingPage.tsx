@@ -1,4 +1,4 @@
-import { Lock, ShieldCheck, Smartphone } from "lucide-react";
+import { ShieldCheck, Smartphone } from "lucide-react";
 import type { Variants } from "motion/react";
 import { motion } from "motion/react";
 
@@ -49,11 +49,6 @@ const features = [
     icon: ShieldCheck,
     label: "Verified Sellers",
     desc: "Every seller is identity-verified",
-  },
-  {
-    icon: Lock,
-    label: "Secure Payments",
-    desc: "Encrypted, safe transactions",
   },
   {
     icon: Smartphone,
@@ -223,7 +218,7 @@ export function LandingPage({ onBrowse, onSell }: LandingPageProps) {
             borderColor: "rgba(255,255,255,0.08)",
           }}
         >
-          <div className="max-w-4xl mx-auto px-6 py-6 grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-0 sm:divide-x sm:divide-white/10">
+          <div className="max-w-4xl mx-auto px-6 py-6 grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-0 sm:divide-x sm:divide-white/10">
             {features.map(({ icon: Icon, label, desc }) => (
               <motion.div
                 key={label}

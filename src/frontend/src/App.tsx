@@ -24,6 +24,7 @@ import { ListingDetailPage } from "./pages/ListingDetailPage";
 import { MessagesPage } from "./pages/MessagesPage";
 import { MyListingsPage } from "./pages/MyListingsPage";
 import { SellPage } from "./pages/SellPage";
+import { SignInPage } from "./pages/SignInPage";
 
 type Page =
   | { name: "landing" }
@@ -33,7 +34,8 @@ type Page =
   | { name: "edit"; id: string }
   | { name: "my-listings" }
   | { name: "admin" }
-  | { name: "messages" };
+  | { name: "messages" }
+  | { name: "signin" };
 
 function UnreadBadge({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -76,7 +78,22 @@ export default function App() {
   };
 
   const renderPage = () => {
+    // Redirect already-authenticated users away from sign-in page
+    if (page.name === "signin" && isAuthenticated) {
+      return (
+        <BrowsePage onViewListing={(id) => navigate({ name: "detail", id })} />
+      );
+    }
+
     switch (page.name) {
+      case "signin":
+        return (
+          <SignInPage
+            onLogin={login}
+            isLoggingIn={isLoggingIn}
+            onBack={() => navigate({ name: "landing" })}
+          />
+        );
       case "landing":
         return (
           <LandingPage
@@ -226,12 +243,11 @@ export default function App() {
               <Button
                 size="sm"
                 data-ocid="nav.login.button"
-                onClick={login}
-                disabled={isLoggingIn}
+                onClick={() => navigate({ name: "signin" })}
                 className="ml-2"
               >
                 <LogIn className="h-4 w-4 mr-1.5" />
-                {isLoggingIn ? "Signing in…" : "Sign In"}
+                Sign In
               </Button>
             )}
           </div>
@@ -345,11 +361,10 @@ export default function App() {
                       size="sm"
                       className="w-full"
                       data-ocid="nav.mobile.login.button"
-                      onClick={login}
-                      disabled={isLoggingIn}
+                      onClick={() => navigate({ name: "signin" })}
                     >
                       <LogIn className="h-4 w-4 mr-2" />
-                      {isLoggingIn ? "Signing in…" : "Sign In"}
+                      Sign In
                     </Button>
                   )}
                 </div>
