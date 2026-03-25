@@ -51,6 +51,11 @@ export interface ConversationSummary {
     unreadCount: bigint;
     listingTitle: string;
 }
+export interface AnalyticsData {
+    totalMessages: bigint;
+    dailyMessages: Array<[string, bigint]>;
+    dailyListings: Array<[string, bigint]>;
+}
 export interface backendInterface {
     adminDeleteAllListingsBySeller(seller: Principal): Promise<void>;
     adminDeleteListing(id: string): Promise<void>;
@@ -59,6 +64,7 @@ export interface backendInterface {
     getAdminStats(): Promise<AdminStats>;
     getAllListings(): Promise<Array<Listing>>;
     getAllListingsAdmin(): Promise<Array<Listing>>;
+    getAnalytics(): Promise<AnalyticsData>;
     getConversation(listingId: string, otherParty: Principal): Promise<Array<Message>>;
     getConversationSummaries(): Promise<Array<ConversationSummary>>;
     getInboxMessages(): Promise<Array<Message>>;
@@ -69,9 +75,12 @@ export interface backendInterface {
     getUnreadCount(): Promise<bigint>;
     initAdmin(): Promise<void>;
     isAdmin(): Promise<boolean>;
+    isPinSet(): Promise<boolean>;
     markAsSold(id: string): Promise<void>;
     markConversationRead(listingId: string, otherParty: Principal): Promise<void>;
     replyMessage(listingId: string, buyer: Principal, content: string): Promise<void>;
     sendMessage(listingId: string, content: string): Promise<void>;
+    setAdminPin(pin: string): Promise<void>;
     updateListing(id: string, title: string, brand: string, model: string, condition: string, price: bigint, description: string, imageUrl: string): Promise<void>;
+    verifyAdminPin(pin: string): Promise<boolean>;
 }

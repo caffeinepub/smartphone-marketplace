@@ -39,6 +39,11 @@ export const Listing = IDL.Record({
   'price' : IDL.Nat,
   'condition' : IDL.Text,
 });
+export const AnalyticsData = IDL.Record({
+  'totalMessages' : IDL.Nat,
+  'dailyMessages' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
+  'dailyListings' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
+});
 export const Message = IDL.Record({
   'id' : IDL.Text,
   'content' : IDL.Text,
@@ -102,6 +107,7 @@ export const idlService = IDL.Service({
   'getAdminStats' : IDL.Func([], [AdminStats], ['query']),
   'getAllListings' : IDL.Func([], [IDL.Vec(Listing)], ['query']),
   'getAllListingsAdmin' : IDL.Func([], [IDL.Vec(Listing)], ['query']),
+  'getAnalytics' : IDL.Func([], [AnalyticsData], ['query']),
   'getConversation' : IDL.Func(
       [IDL.Text, IDL.Principal],
       [IDL.Vec(Message)],
@@ -124,10 +130,12 @@ export const idlService = IDL.Service({
   'getUnreadCount' : IDL.Func([], [IDL.Nat], ['query']),
   'initAdmin' : IDL.Func([], [], []),
   'isAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'isPinSet' : IDL.Func([], [IDL.Bool], ['query']),
   'markAsSold' : IDL.Func([IDL.Text], [], []),
   'markConversationRead' : IDL.Func([IDL.Text, IDL.Principal], [], []),
   'replyMessage' : IDL.Func([IDL.Text, IDL.Principal, IDL.Text], [], []),
   'sendMessage' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'setAdminPin' : IDL.Func([IDL.Text], [], []),
   'updateListing' : IDL.Func(
       [
         IDL.Text,
@@ -142,6 +150,7 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'verifyAdminPin' : IDL.Func([IDL.Text], [IDL.Bool], []),
 });
 
 export const idlInitArgs = [];
@@ -177,6 +186,11 @@ export const idlFactory = ({ IDL }) => {
     'brand' : IDL.Text,
     'price' : IDL.Nat,
     'condition' : IDL.Text,
+  });
+  const AnalyticsData = IDL.Record({
+    'totalMessages' : IDL.Nat,
+    'dailyMessages' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
+    'dailyListings' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
   });
   const Message = IDL.Record({
     'id' : IDL.Text,
@@ -241,6 +255,7 @@ export const idlFactory = ({ IDL }) => {
     'getAdminStats' : IDL.Func([], [AdminStats], ['query']),
     'getAllListings' : IDL.Func([], [IDL.Vec(Listing)], ['query']),
     'getAllListingsAdmin' : IDL.Func([], [IDL.Vec(Listing)], ['query']),
+    'getAnalytics' : IDL.Func([], [AnalyticsData], ['query']),
     'getConversation' : IDL.Func(
         [IDL.Text, IDL.Principal],
         [IDL.Vec(Message)],
@@ -263,10 +278,12 @@ export const idlFactory = ({ IDL }) => {
     'getUnreadCount' : IDL.Func([], [IDL.Nat], ['query']),
     'initAdmin' : IDL.Func([], [], []),
     'isAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'isPinSet' : IDL.Func([], [IDL.Bool], ['query']),
     'markAsSold' : IDL.Func([IDL.Text], [], []),
     'markConversationRead' : IDL.Func([IDL.Text, IDL.Principal], [], []),
     'replyMessage' : IDL.Func([IDL.Text, IDL.Principal, IDL.Text], [], []),
     'sendMessage' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'setAdminPin' : IDL.Func([IDL.Text], [], []),
     'updateListing' : IDL.Func(
         [
           IDL.Text,
@@ -281,6 +298,7 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'verifyAdminPin' : IDL.Func([IDL.Text], [IDL.Bool], []),
   });
 };
 

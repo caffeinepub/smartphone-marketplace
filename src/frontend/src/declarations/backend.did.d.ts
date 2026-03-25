@@ -17,6 +17,11 @@ export interface AdminStats {
   'totalListings' : bigint,
   'brandBreakdown' : Array<[string, bigint]>,
 }
+export interface AnalyticsData {
+  'totalMessages' : bigint,
+  'dailyMessages' : Array<[string, bigint]>,
+  'dailyListings' : Array<[string, bigint]>,
+}
 export interface ConversationSummary {
   'lastMessageAt' : bigint,
   'listingId' : string,
@@ -91,6 +96,7 @@ export interface _SERVICE {
   'getAdminStats' : ActorMethod<[], AdminStats>,
   'getAllListings' : ActorMethod<[], Array<Listing>>,
   'getAllListingsAdmin' : ActorMethod<[], Array<Listing>>,
+  'getAnalytics' : ActorMethod<[], AnalyticsData>,
   'getConversation' : ActorMethod<[string, Principal], Array<Message>>,
   'getConversationSummaries' : ActorMethod<[], Array<ConversationSummary>>,
   'getInboxMessages' : ActorMethod<[], Array<Message>>,
@@ -101,14 +107,17 @@ export interface _SERVICE {
   'getUnreadCount' : ActorMethod<[], bigint>,
   'initAdmin' : ActorMethod<[], undefined>,
   'isAdmin' : ActorMethod<[], boolean>,
+  'isPinSet' : ActorMethod<[], boolean>,
   'markAsSold' : ActorMethod<[string], undefined>,
   'markConversationRead' : ActorMethod<[string, Principal], undefined>,
   'replyMessage' : ActorMethod<[string, Principal, string], undefined>,
   'sendMessage' : ActorMethod<[string, string], undefined>,
+  'setAdminPin' : ActorMethod<[string], undefined>,
   'updateListing' : ActorMethod<
     [string, string, string, string, string, bigint, string, string],
     undefined
   >,
+  'verifyAdminPin' : ActorMethod<[string], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

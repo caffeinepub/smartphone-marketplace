@@ -1,28 +1,25 @@
 # PhoneBazaar
 
 ## Current State
-The app has no dedicated sign-in page. Authentication is triggered via a "Sign In" button in the nav bar that directly calls the Internet Identity login flow. There is no modal or page shown to the user before the II popup opens.
+Admin dashboard with stats, brand breakdown, listings, seller management. Admin set by first Internet Identity login. No analytics trends. No secondary PIN security layer.
 
 ## Requested Changes (Diff)
 
 ### Add
-- A dedicated SignInPage component that shows:
-  - The PhoneBazaar logo (`/assets/uploads/logo-transparent-1.png`) centered and prominent
-  - App name and tagline
-  - A primary "Sign in with Internet Identity" button
-  - Google and Facebook sign-in buttons (visually present but disabled/locked with a tooltip explaining only Internet Identity is supported on this platform)
-  - A link/back button to return to the landing page
-- When the nav "Sign In" button is clicked, navigate to the new sign-in page instead of directly triggering login
-- The sign-in page should be accessible at a `{ name: "signin" }` page state
+- Backend: setAdminPin(pin), verifyAdminPin(pin) -> Bool, getAnalytics() -> AnalyticsData
+- Frontend: Admin PIN login gate (Internet Identity + PIN required)
+- Frontend: PIN setup screen for first-time admin
+- Frontend: Analytics tab with charts (listing trends, message volume, brand pie, sold vs active)
 
 ### Modify
-- `App.tsx`: Add `signin` page type, route to `SignInPage`, and update the nav Sign In button to navigate to the sign-in page instead of calling `login()` directly
-- If user is already authenticated and navigates to sign-in page, redirect to browse
+- AdminDashboardPage: PIN verification gate + Analytics tab
 
 ### Remove
-- Nothing removed
+- Nothing
 
 ## Implementation Plan
-1. Create `src/pages/SignInPage.tsx` with logo, app name, tagline, Internet Identity button, and disabled Google/Facebook buttons
-2. Update `App.tsx` to add `signin` to the Page type, add the SignInPage route, and change the nav Sign In button to navigate to `{ name: "signin" }` instead of calling `login()` directly
-3. Pass `login`, `isLoggingIn`, and `navigate` callbacks into SignInPage
+1. Add AnalyticsData type with daily buckets for listings and messages (last 30 days)
+2. Add setAdminPin, verifyAdminPin, getAnalytics to main.mo
+3. AdminDashboardPage: PIN gate UI using sessionStorage for verified state
+4. Analytics tab using shadcn Chart (recharts) for bar/line/pie charts
+5. PIN setup flow when admin has not yet set a PIN

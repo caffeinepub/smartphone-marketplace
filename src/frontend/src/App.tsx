@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import {
   Inbox,
+  Info,
   LogIn,
   LogOut,
   Menu,
@@ -17,6 +18,7 @@ import { useEffect, useState } from "react";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useMessageNotifications, useUnreadCount } from "./hooks/useQueries";
+import { AboutPage } from "./pages/AboutPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { BrowsePage } from "./pages/BrowsePage";
 import { LandingPage } from "./pages/LandingPage";
@@ -35,7 +37,8 @@ type Page =
   | { name: "my-listings" }
   | { name: "admin" }
   | { name: "messages" }
-  | { name: "signin" };
+  | { name: "signin" }
+  | { name: "about" };
 
 function UnreadBadge({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -149,6 +152,8 @@ export default function App() {
             onLogin={login}
           />
         );
+      case "about":
+        return <AboutPage />;
     }
   };
 
@@ -181,6 +186,15 @@ export default function App() {
             >
               <ShoppingBag className="h-4 w-4 mr-1.5" />
               Browse
+            </Button>
+            <Button
+              variant={page.name === "about" ? "secondary" : "ghost"}
+              size="sm"
+              data-ocid="nav.about.link"
+              onClick={() => navigate({ name: "about" })}
+            >
+              <Info className="h-4 w-4 mr-1.5" />
+              About
             </Button>
             <Button
               variant={page.name === "sell" ? "secondary" : "ghost"}
@@ -290,6 +304,16 @@ export default function App() {
                   Browse
                 </Button>
                 <Button
+                  variant={page.name === "about" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="justify-start"
+                  data-ocid="nav.mobile.about.link"
+                  onClick={() => navigate({ name: "about" })}
+                >
+                  <Info className="h-4 w-4 mr-2" />
+                  About
+                </Button>
+                <Button
                   variant={page.name === "sell" ? "secondary" : "ghost"}
                   size="sm"
                   className="justify-start"
@@ -391,24 +415,45 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-border mt-auto py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-between sm:text-left">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Smartphone className="h-4 w-4 text-primary" />
             <span className="font-display font-semibold text-foreground">
               PhoneBazaar
             </span>
-          </div>
-          <p className="text-xs text-muted-foreground text-center">
-            © {new Date().getFullYear()}. Built with ♥ using{" "}
-            <a
-              href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="underline underline-offset-2 hover:text-foreground transition-colors"
+            <span className="text-muted-foreground/50">·</span>
+            <button
+              type="button"
+              data-ocid="footer.about.link"
+              className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+              onClick={() => navigate({ name: "about" })}
             >
-              caffeine.ai
-            </a>
-          </p>
+              About
+            </button>
+          </div>
+          <div className="flex flex-col items-center sm:items-end gap-1">
+            <p className="text-xs text-muted-foreground">
+              Owned by{" "}
+              <span className="font-semibold text-foreground">
+                Ali Haider Aftab
+              </span>{" "}
+              &middot;{" "}
+              <span className="font-semibold text-foreground">
+                KMZ INTERACTIVE
+              </span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              © {new Date().getFullYear()} PhoneBazaar. Built with ♥ using{" "}
+              <a
+                href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 hover:text-foreground transition-colors"
+              >
+                caffeine.ai
+              </a>
+            </p>
+          </div>
         </div>
       </footer>
 

@@ -12,6 +12,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -27,18 +32,40 @@ import {
   AlertTriangle,
   BarChart3,
   CheckCircle2,
+  KeyRound,
+  LineChart as LineChartIcon,
   Loader2,
+  Lock,
+  MessageSquare,
   Package,
   ShieldAlert,
+  ShieldCheck,
   ShoppingBag,
   Trash2,
+  TrendingUp,
   Users,
 } from "lucide-react";
-import { motion } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { toast } from "sonner";
-import type { AdminStats, Listing, SellerSummary } from "../backend.d.ts";
+import type {
+  AdminStats,
+  AnalyticsData,
+  Listing,
+  SellerSummary,
+} from "../backend.d.ts";
 import { useActor } from "../hooks/useActor";
+
+const SESSION_KEY = "adminPinVerified";
 
 function formatDate(ns: bigint): string {
   const ms = Number(ns / 1_000_000n);
@@ -52,12 +79,12 @@ function formatDate(ns: bigint): string {
 function truncatePrincipal(principal: { toString(): string }): string {
   const str = principal.toString();
   if (str.length <= 14) return str;
-  return `${str.slice(0, 6)}…${str.slice(-6)}`;
+  return `${str.slice(0, 6)}\u2026${str.slice(-6)}`;
 }
 
 function formatPrice(price: bigint): string {
   const num = Math.round(Number(price) / 100);
-  return `₨${num.toLocaleString("en-PK")}`;
+  return `\u20a8${num.toLocaleString("en-PK")}`;
 }
 
 // ── Stat Card ──────────────────────────────────────────────────────────────────
@@ -89,7 +116,9 @@ function StatCard({
       </CardHeader>
       <CardContent>
         <p
-          className={`text-3xl font-bold font-display ${highlight ? "text-primary" : "text-card-foreground"}`}
+          className={`text-3xl font-bold font-display ${
+            highlight ? "text-primary" : "text-card-foreground"
+          }`}
         >
           {value}
         </p>
@@ -101,12 +130,516 @@ function StatCard({
   );
 }
 
+// ── PIN Input (6 boxes) ────────────────────────────────────────────────────────
+function PinBoxes({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  function handleChange(idx: number, char: string) {
+    const digit = char.replace(/\D/g, "").slice(-1);
+    const newVal = `${value.slice(0, idx)}${digit}${value.slice(idx + 1)}`;
+    const clamped = newVal.slice(0, 6);
+    onChange(clamped);
+    if (digit && idx < 5) {
+      inputRefs.current[idx + 1]?.focus();
+    }
+  }
+
+  function handleKeyDown(
+    idx: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) {
+    if (e.key === "Backspace") {
+      if (value[idx]) {
+        const newVal = `${value.slice(0, idx)}${value.slice(idx + 1)}`;
+        onChange(newVal);
+      } else if (idx > 0) {
+        inputRefs.current[idx - 1]?.focus();
+        const newVal = `${value.slice(0, idx - 1)}${value.slice(idx)}`;
+        onChange(newVal);
+      }
+    } else if (e.key === "ArrowLeft" && idx > 0) {
+      inputRefs.current[idx - 1]?.focus();
+    } else if (e.key === "ArrowRight" && idx < 5) {
+      inputRefs.current[idx + 1]?.focus();
+    }
+  }
+
+  function handlePaste(e: React.ClipboardEvent) {
+    const pasted = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, 6);
+    onChange(pasted.padEnd(6, "").slice(0, 6));
+    inputRefs.current[Math.min(pasted.length, 5)]?.focus();
+    e.preventDefault();
+  }
+
+  return (
+    <div className="flex gap-2 justify-center">
+      {[0, 1, 2, 3, 4, 5].map((idx) => (
+        <input
+          key={idx}
+          ref={(el) => {
+            inputRefs.current[idx] = el;
+          }}
+          type="password"
+          inputMode="numeric"
+          maxLength={1}
+          value={value[idx] || ""}
+          disabled={disabled}
+          onChange={(e) => handleChange(idx, e.target.value)}
+          onKeyDown={(e) => handleKeyDown(idx, e)}
+          onPaste={handlePaste}
+          onFocus={(e) => e.target.select()}
+          className="w-11 h-12 text-center text-xl font-bold rounded-lg border-2 bg-background text-foreground focus:outline-none focus:border-primary transition-colors disabled:opacity-50 caret-transparent"
+          style={{
+            borderColor: value[idx] ? "hsl(var(--primary))" : undefined,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Set PIN Screen ────────────────────────────────────────────────────────────
+function SetPinScreen({ onPinSet }: { onPinSet: () => void }) {
+  const { actor } = useActor();
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSetPin() {
+    if (pin.length !== 6) {
+      setError("Please enter all 6 digits.");
+      return;
+    }
+    if (pin !== confirmPin) {
+      setError("PINs do not match. Try again.");
+      return;
+    }
+    if (!actor) return;
+    setIsSubmitting(true);
+    setError("");
+    try {
+      await actor.setAdminPin(pin);
+      sessionStorage.setItem(SESSION_KEY, "true");
+      toast.success("Admin PIN set successfully");
+      onPinSet();
+    } catch {
+      setError("Failed to set PIN. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <motion.div
+      data-ocid="admin.pin.set.panel"
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3 }}
+      className="min-h-[70vh] flex items-center justify-center px-4"
+    >
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4 ring-1 ring-primary/20">
+            <KeyRound className="h-8 w-8 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold font-display mb-2">
+            Create Admin PIN
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Set a 6-digit PIN to secure your admin dashboard. You&apos;ll need
+            it each session.
+          </p>
+        </div>
+
+        <Card className="border-border/60 shadow-lg">
+          <CardContent className="pt-6 space-y-6">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground text-center uppercase tracking-widest">
+                New PIN
+              </p>
+              <PinBoxes value={pin} onChange={setPin} disabled={isSubmitting} />
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground text-center uppercase tracking-widest">
+                Confirm PIN
+              </p>
+              <PinBoxes
+                value={confirmPin}
+                onChange={setConfirmPin}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <AnimatePresence>
+              {error && (
+                <motion.p
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="text-sm text-destructive text-center font-medium"
+                  data-ocid="admin.pin.error_state"
+                >
+                  {error}
+                </motion.p>
+              )}
+            </AnimatePresence>
+
+            <Button
+              data-ocid="admin.pin.set.submit_button"
+              className="w-full"
+              onClick={handleSetPin}
+              disabled={isSubmitting || pin.length < 6 || confirmPin.length < 6}
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4 mr-2" />
+              )}
+              {isSubmitting ? "Setting PIN..." : "Set PIN & Enter Dashboard"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Verify PIN Screen ─────────────────────────────────────────────────────────
+function VerifyPinScreen({ onVerified }: { onVerified: () => void }) {
+  const { actor } = useActor();
+  const [pin, setPin] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [error, setError] = useState("");
+  const [shake, setShake] = useState(false);
+
+  const handleVerify = useCallback(
+    async (pinValue: string) => {
+      if (pinValue.length !== 6) return;
+      if (!actor) return;
+      setIsVerifying(true);
+      setError("");
+      try {
+        const ok = await actor.verifyAdminPin(pinValue);
+        if (ok) {
+          sessionStorage.setItem(SESSION_KEY, "true");
+          onVerified();
+        } else {
+          setPin("");
+          setError("Incorrect PIN. Please try again.");
+          setShake(true);
+          setTimeout(() => setShake(false), 600);
+        }
+      } catch {
+        setError("Verification failed. Please try again.");
+      } finally {
+        setIsVerifying(false);
+      }
+    },
+    [actor, onVerified],
+  );
+
+  // Auto-submit when 6 digits entered
+  useEffect(() => {
+    if (pin.length === 6 && !isVerifying) {
+      handleVerify(pin);
+    }
+  }, [pin, isVerifying, handleVerify]);
+
+  return (
+    <motion.div
+      data-ocid="admin.pin.verify.panel"
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3 }}
+      className="min-h-[70vh] flex items-center justify-center px-4"
+    >
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4 ring-1 ring-primary/20">
+            <Lock className="h-8 w-8 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold font-display mb-2">Admin Access</h1>
+          <p className="text-sm text-muted-foreground">
+            Enter your 6-digit PIN to access the dashboard.
+          </p>
+        </div>
+
+        <Card className="border-border/60 shadow-lg">
+          <CardContent className="pt-6 space-y-6">
+            <motion.div
+              animate={shake ? { x: [-8, 8, -6, 6, -4, 4, 0] } : {}}
+              transition={{ duration: 0.5 }}
+            >
+              <PinBoxes value={pin} onChange={setPin} disabled={isVerifying} />
+            </motion.div>
+
+            <AnimatePresence>
+              {error && (
+                <motion.p
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="text-sm text-destructive text-center font-medium"
+                  data-ocid="admin.pin.error_state"
+                >
+                  {error}
+                </motion.p>
+              )}
+            </AnimatePresence>
+
+            <Button
+              data-ocid="admin.pin.verify.submit_button"
+              className="w-full"
+              onClick={() => handleVerify(pin)}
+              disabled={isVerifying || pin.length < 6}
+            >
+              {isVerifying ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4 mr-2" />
+              )}
+              {isVerifying ? "Verifying..." : "Unlock Dashboard"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Analytics Tab ─────────────────────────────────────────────────────────────
+function AnalyticsTab({ stats }: { stats: AdminStats }) {
+  const { actor } = useActor();
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!actor) return;
+    setIsLoading(true);
+    actor
+      .getAnalytics()
+      .then((data) => {
+        setAnalytics(data);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setError("Failed to load analytics data.");
+        setIsLoading(false);
+      });
+  }, [actor]);
+
+  const soldRate =
+    stats.totalListings > 0n
+      ? Math.round(
+          (Number(stats.soldListings) / Number(stats.totalListings)) * 100,
+        )
+      : 0;
+
+  const totalMessages = analytics ? Number(analytics.totalMessages) : 0;
+
+  const listingsChartData = analytics
+    ? analytics.dailyListings
+        .slice(-30)
+        .map(([date, count]) => ({ date, count: Number(count) }))
+    : [];
+
+  const messagesChartData = analytics
+    ? analytics.dailyMessages
+        .slice(-30)
+        .map(([date, count]) => ({ date, count: Number(count) }))
+    : [];
+
+  const listingsChartConfig = {
+    count: { label: "Listings", color: "hsl(var(--primary))" },
+  };
+
+  const messagesChartConfig = {
+    count: { label: "Messages", color: "hsl(var(--chart-2))" },
+  };
+
+  if (isLoading) {
+    return (
+      <div data-ocid="admin.analytics.loading_state" className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+        </div>
+        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        data-ocid="admin.analytics.error_state"
+        className="text-center py-12 text-muted-foreground"
+      >
+        <AlertTriangle className="h-8 w-8 mx-auto mb-3 text-destructive" />
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div data-ocid="admin.analytics.panel" className="space-y-6">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Messages
+            </CardTitle>
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold font-display text-card-foreground">
+              {totalMessages.toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-primary/40">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Sold Rate
+            </CardTitle>
+            <TrendingUp className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold font-display text-primary">
+              {soldRate}%
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Listings line chart */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold font-display flex items-center gap-2">
+            <LineChartIcon className="h-4 w-4 text-primary" />
+            Listings Over Last 30 Days
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {listingsChartData.length === 0 ? (
+            <div className="text-center py-12 text-sm text-muted-foreground">
+              No listing activity yet.
+            </div>
+          ) : (
+            <ChartContainer
+              config={listingsChartConfig}
+              className="h-56 w-full"
+            >
+              <LineChart data={listingsChartData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  className="stroke-border/40"
+                />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+              </LineChart>
+            </ChartContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Messages bar chart */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold font-display flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-chart-2" />
+            Messages Over Last 30 Days
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {messagesChartData.length === 0 ? (
+            <div className="text-center py-12 text-sm text-muted-foreground">
+              No message activity yet.
+            </div>
+          ) : (
+            <ChartContainer
+              config={messagesChartConfig}
+              className="h-56 w-full"
+            >
+              <BarChart data={messagesChartData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  className="stroke-border/40"
+                />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar
+                  dataKey="count"
+                  fill="hsl(var(--chart-2))"
+                  radius={[3, 3, 0, 0]}
+                />
+              </BarChart>
+            </ChartContainer>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export function AdminDashboardPage() {
   const { actor, isFetching: actorFetching } = useActor();
 
   const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
+  // PIN state
+  type PinState = "checking" | "set-pin" | "verify-pin" | "verified";
+  const [pinState, setPinState] = useState<PinState>("checking");
+
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [sellers, setSellers] = useState<SellerSummary[]>([]);
@@ -114,7 +647,7 @@ export function AdminDashboardPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Check admin status on mount
+  // Check admin status
   useEffect(() => {
     if (!actor || actorFetching) return;
 
@@ -133,6 +666,26 @@ export function AdminDashboardPage() {
 
     checkAdmin();
   }, [actor, actorFetching]);
+
+  // Check PIN state once admin confirmed
+  useEffect(() => {
+    if (!actor || !isAdmin) return;
+
+    // Already verified this session
+    if (sessionStorage.getItem(SESSION_KEY) === "true") {
+      setPinState("verified");
+      return;
+    }
+
+    actor
+      .isPinSet()
+      .then((pinSet) => {
+        setPinState(pinSet ? "verify-pin" : "set-pin");
+      })
+      .catch(() => {
+        setPinState("set-pin");
+      });
+  }, [actor, isAdmin]);
 
   // Fetch dashboard data
   const fetchData = useCallback(async () => {
@@ -158,10 +711,10 @@ export function AdminDashboardPage() {
   }, [actor, isAdmin]);
 
   useEffect(() => {
-    if (isAdmin === true) {
+    if (pinState === "verified") {
       fetchData();
     }
-  }, [isAdmin, fetchData]);
+  }, [pinState, fetchData]);
 
   // Delete a listing
   async function handleDelete(id: string) {
@@ -213,6 +766,15 @@ export function AdminDashboardPage() {
         </p>
       </div>
     );
+  }
+
+  // ── PIN screens ──
+  if (isAdmin && pinState === "set-pin") {
+    return <SetPinScreen onPinSet={() => setPinState("verified")} />;
+  }
+
+  if (isAdmin && pinState === "verify-pin") {
+    return <VerifyPinScreen onVerified={() => setPinState("verified")} />;
   }
 
   // ── Error ──
@@ -416,8 +978,12 @@ export function AdminDashboardPage() {
                   label: "Sell-Through Rate",
                   value:
                     stats.totalListings > 0n
-                      ? `${Math.round((Number(stats.soldListings) / Number(stats.totalListings)) * 100)}%`
-                      : "—",
+                      ? `${Math.round(
+                          (Number(stats.soldListings) /
+                            Number(stats.totalListings)) *
+                            100,
+                        )}%`
+                      : "\u2014",
                   sub: "sold vs total",
                 },
                 {
@@ -428,7 +994,7 @@ export function AdminDashboardPage() {
                           Number(stats.totalListings) /
                           Number(stats.uniqueSellers)
                         ).toFixed(1)
-                      : "—",
+                      : "\u2014",
                   sub: "per unique seller",
                 },
                 {
@@ -460,7 +1026,7 @@ export function AdminDashboardPage() {
         </motion.div>
       </div>
 
-      {/* Tabs: Listings / Sellers */}
+      {/* Tabs */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -468,19 +1034,23 @@ export function AdminDashboardPage() {
       >
         <Tabs defaultValue="listings">
           <TabsList className="mb-4">
-            <TabsTrigger value="listings" data-ocid="admin.tab.listings">
+            <TabsTrigger value="listings" data-ocid="admin.listings.tab">
               <Package className="h-3.5 w-3.5 mr-1.5" />
               Listings
               <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">
                 {sortedListings.length}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="sellers" data-ocid="admin.tab.sellers">
+            <TabsTrigger value="sellers" data-ocid="admin.sellers.tab">
               <Users className="h-3.5 w-3.5 mr-1.5" />
               Sellers
               <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">
                 {sortedSellers.length}
               </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" data-ocid="admin.analytics.tab">
+              <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
+              Analytics
             </TabsTrigger>
           </TabsList>
 
@@ -498,8 +1068,11 @@ export function AdminDashboardPage() {
               </CardHeader>
               <CardContent className="p-0">
                 {sortedListings.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground text-sm">
-                    No listings found.
+                  <div
+                    data-ocid="admin.listings.empty_state"
+                    className="text-center py-12 text-muted-foreground text-sm"
+                  >
+                    No listings yet.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -527,8 +1100,8 @@ export function AdminDashboardPage() {
                           <TableHead className="text-xs font-semibold hidden sm:table-cell">
                             Date
                           </TableHead>
-                          <TableHead className="text-xs font-semibold pr-6 text-right">
-                            Action
+                          <TableHead className="pr-6 text-right text-xs font-semibold">
+                            Actions
                           </TableHead>
                         </TableRow>
                       </TableHeader>
@@ -610,6 +1183,11 @@ export function AdminDashboardPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ── Analytics Tab ── */}
+          <TabsContent value="analytics">
+            <AnalyticsTab stats={stats} />
           </TabsContent>
         </Tabs>
       </motion.div>
@@ -767,18 +1345,11 @@ function AdminSellerRow({
       <TableCell className="text-sm font-semibold text-center text-card-foreground">
         {sellerSummary.totalListings.toString()}
       </TableCell>
-      <TableCell className="text-sm text-center hidden sm:table-cell">
-        <Badge className="text-xs font-medium bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">
-          {sellerSummary.activeListings.toString()}
-        </Badge>
+      <TableCell className="text-sm text-center text-muted-foreground hidden sm:table-cell">
+        {sellerSummary.activeListings.toString()}
       </TableCell>
-      <TableCell className="text-sm text-center hidden sm:table-cell">
-        <Badge
-          variant="secondary"
-          className="text-xs font-medium bg-muted text-muted-foreground"
-        >
-          {sellerSummary.soldListings.toString()}
-        </Badge>
+      <TableCell className="text-sm text-center text-muted-foreground hidden sm:table-cell">
+        {sellerSummary.soldListings.toString()}
       </TableCell>
       <TableCell className="pr-6 text-right">
         <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -787,15 +1358,9 @@ function AdminSellerRow({
               variant="ghost"
               size="sm"
               data-ocid={`admin.seller.delete_button.${index}`}
-              className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors gap-1.5"
-              aria-label={`Remove all listings for seller ${sellerSummary.seller.toString()}`}
-              disabled={isRemoving || sellerSummary.totalListings === 0n}
+              className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             >
-              {isRemoving ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Trash2 className="h-3 w-3" />
-              )}
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
               Remove All
             </Button>
           </AlertDialogTrigger>
@@ -803,15 +1368,11 @@ function AdminSellerRow({
             <AlertDialogHeader>
               <AlertDialogTitle>Remove All Listings</AlertDialogTitle>
               <AlertDialogDescription>
-                Permanently delete all{" "}
-                <span className="font-semibold text-foreground">
-                  {sellerSummary.totalListings.toString()}
-                </span>{" "}
-                listing(s) by seller{" "}
-                <span className="font-mono text-xs text-foreground">
+                This will permanently delete all listings by{" "}
+                <span className="font-mono text-xs">
                   {truncatePrincipal(sellerSummary.seller)}
                 </span>
-                ? This action cannot be undone.
+                . This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -821,10 +1382,7 @@ function AdminSellerRow({
               <AlertDialogAction
                 data-ocid="admin.seller.delete.confirm_button"
                 disabled={isRemoving}
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleRemoveAll();
-                }}
+                onClick={handleRemoveAll}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {isRemoving ? (
